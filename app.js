@@ -137,7 +137,7 @@ function initTicker() {
 function initExternalLinks() {
   document.querySelectorAll("[data-booking-link]").forEach(link => {
     const url = safeHttpUrl(BOOKING_FORM_URL);
-    link.href = url || "mailto:hello@zaralakemusic.com?subject=Booking%20enquiry";
+    link.href = url || "mailto:lake.zara@gmail.com?subject=Booking%20enquiry";
     if (!url) link.removeAttribute("target");
   });
   [["instagram", INSTAGRAM_URL], ["tiktok", TIKTOK_URL]].forEach(([platform, value]) => {
