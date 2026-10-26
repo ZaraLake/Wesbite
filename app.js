@@ -393,16 +393,22 @@ function getVideoSource(value) {
   return { type: "link", platform, sourceUrl };
 }
 
+
 function normalizeVideo(row) {
   const video = getVideoSource(row.video_url || row.url || row.link || row.video || row.video_link);
   if (!video) return null;
+
   return {
     ...video,
     title: row.title || row.name || row.caption || "Live performance",
     description: row.description || (row.title ? row.caption : "") || "",
-    thumbnailUrl: safeHttpUrl(row.thumbnail_url || row.thumbnail || row.image_url) || video.thumbnailUrl || ""
+    thumbnailUrl: safeHttpUrl(row.thumbnail_url || row.thumbnail || row.image_url) || video.thumbnailUrl || "",
+    size: (row.size || "").trim().toLowerCase() === "portrait"
+      ? "portrait"
+      : "landscape"
   };
 }
+
 
 async function loadVideos() {
   const section = document.querySelector("#videos");
@@ -424,7 +430,7 @@ async function loadVideos() {
 
 function createVideoCard(video) {
   const article = document.createElement("article");
-  article.className = "video-card";
+  article.className = `video-card video-card--${video.size}`;
 
   const frame = document.createElement("div");
   frame.className = "video-frame";
