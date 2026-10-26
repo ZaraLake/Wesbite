@@ -382,6 +382,21 @@ a[aria-disabled="true"] { cursor:default; }
 .video-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(1rem, 2.5vw, 1.6rem); }
 .video-card { min-width: 0; overflow: hidden; border: 1px solid #293b3226; border-radius: 1.3rem 1.3rem .45rem .45rem; background: #fffaf2; box-shadow: 0 6px 18px #293b320b; }
 .video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #344d40; }
+
+
+/* Portrait videos: 9:16 instead of 16:9 */
+.video-card--portrait .video-frame {
+  aspect-ratio: 9 / 16;
+}
+
+/* Prevent portrait video cards becoming too wide */
+.video-card--portrait {
+  width: 100%;
+  max-width: 340px;
+  justify-self: center;
+}
+
+
 .video-play { position: relative; display: grid; place-items: center; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; isolation: isolate; }
 .video-thumb, .video-thumb-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
 .video-thumb { object-fit: cover; transition: transform .3s ease; }
