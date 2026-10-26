@@ -1,6 +1,6 @@
 const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRqk41bIKnuD229OKMdksr3U0pM4By8EIIc9cKZc3NUvbS1Ym1gZZxLPK32uiPXRWwdAm9IebsCWcX8/pub";
 const CONTENT_FEEDS = Object.fromEntries(Object.entries({
-  gigs: "184492724", testimonials: "2133372136", setlist: "878801031", gallery: "635542522"
+  gigs: "184492724", testimonials: "2133372136", setlist: "878801031", gallery: "635542522", videos: "283372914"
 }).map(([section, gid]) => [section, `${SHEET_URL}?output=csv&single=true&gid=${gid}`]));
 const BOOKING_FORM_URL = "";
 const INSTAGRAM_URL = "https://www.instagram.com/zaralakemusic/";
@@ -72,7 +72,8 @@ async function refreshContent() {
       loadGigs(),
       loadSection("testimonials", "#testimonials", ["quote", "name"], createQuote, row => row.quote && row.name),
       loadSection("setlist", "#setlist", ["song", "artist"], createSong, row => row.song),
-      loadSection("gallery", "#gallery-images", ["image_url", "alt"], createPhoto, row => safeHttpUrl(row.image_url) && row.alt)
+      loadSection("gallery", "#gallery-images", ["image_url", "alt"], createPhoto, row => safeHttpUrl(row.image_url) && row.alt),
+      loadVideos()
     ]);
   } finally { refreshInProgress = false; }
 }
@@ -354,4 +355,160 @@ function createPhoto(row, index) {
   img.decoding = "async";
   button.append(img);
   return button;
+}
+
+// Videos can be linked from YouTube (including Shorts), Vimeo, Google Drive,
+// or direct MP4/WebM/Ogg files. Other HTTPS links open on their own platform.
+// Videos use a poster first: external video players load only after a click.
+function getVideoSource(value) {
+  const sourceUrl = safeHttpUrl(value);
+  if (!sourceUrl) return null;
+  const url = new URL(sourceUrl);
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname;
+  const youtubeHost = host === "youtube.com" || host.endsWith(".youtube.com") || host === "youtu.be" || host === "www.youtube-nocookie.com" || host === "youtube-nocookie.com";
+  if (youtubeHost) {
+    let id = host === "youtu.be" ? path.split("/")[1] : url.searchParams.get("v");
+    if (!id && /\/(shorts|live|embed)\//.test(path)) id = path.split("/")[2];
+    if (id && /^[a-zA-Z0-9_-]{11}$/.test(id)) {
+      return { type: "embed", platform: "YouTube", sourceUrl,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0`,
+        thumbnailUrl: `https://i.ytimg.com/vi/${id}/hqdefault.jpg` };
+    }
+  }
+  if (host === "vimeo.com" || host === "www.vimeo.com" || host === "player.vimeo.com") {
+    const match = path.match(/\/(?:video\/)?(\d+)(?:$|\/)/);
+    if (match) return { type: "embed", platform: "Vimeo", sourceUrl,
+      embedUrl: `https://player.vimeo.com/video/${match[1]}?autoplay=1&dnt=1` };
+  }
+  if (host === "drive.google.com") {
+    const match = path.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    const id = match?.[1] || (path === "/open" ? url.searchParams.get("id") : null);
+    if (id && /^[a-zA-Z0-9_-]+$/.test(id)) return { type: "embed", platform: "Google Drive", sourceUrl,
+      embedUrl: `https://drive.google.com/file/d/${id}/preview` };
+  }
+  if (/\.(mp4|webm|ogg)$/i.test(path)) return { type: "file", platform: "Video", sourceUrl };
+  const platform = host.endsWith("tiktok.com") ? "TikTok" :
+    host.endsWith("instagram.com") ? "Instagram" : "original site";
+  return { type: "link", platform, sourceUrl };
+}
+
+function normalizeVideo(row) {
+  const video = getVideoSource(row.video_url || row.url || row.link || row.video || row.video_link);
+  if (!video) return null;
+  return {
+    ...video,
+    title: row.title || row.name || row.caption || "Live performance",
+    description: row.description || (row.title ? row.caption : "") || "",
+    thumbnailUrl: safeHttpUrl(row.thumbnail_url || row.thumbnail || row.image_url) || video.thumbnailUrl || ""
+  };
+}
+
+async function loadVideos() {
+  const section = document.querySelector("#videos");
+  const grid = document.querySelector("#video-grid");
+  if (!section || !grid) return;
+  try {
+    // Accept video_url or url/link as the URL header (all other columns optional).
+    const rows = orderedRows(await fetchRows(CONTENT_FEEDS.videos, []));
+    const videos = rows.map(normalizeVideo).filter(Boolean);
+    if (videos.length !== rows.length) console.warn("Skipped videos with missing or invalid URLs");
+    if (contentChanged("videos", videos)) grid.replaceChildren(...videos.map(createVideoCard));
+    section.hidden = videos.length === 0;
+  } catch (error) {
+    // If the new tab has not been published yet, keep the rest of the site tidy.
+    console.warn("Could not load videos from the published Sheet tab", error);
+    if (!contentSignatures.has("videos")) section.hidden = true;
+  }
+}
+
+function createVideoCard(video) {
+  const article = document.createElement("article");
+  article.className = "video-card";
+
+  const frame = document.createElement("div");
+  frame.className = "video-frame";
+  const poster = video.type === "link" ? document.createElement("a") : document.createElement("button");
+  poster.className = "video-play";
+  if (video.type === "link") {
+    poster.href = video.sourceUrl;
+    poster.target = "_blank";
+    poster.rel = "noopener noreferrer";
+    poster.setAttribute("aria-label", `Watch ${video.title} on ${video.platform} (opens in a new tab)`);
+  } else {
+    poster.type = "button";
+    poster.setAttribute("aria-label", `Play ${video.title}`);
+    poster.addEventListener("click", () => {
+      // One player at a time, so audio doesn't overlap.
+      document.querySelectorAll(".video-close").forEach(button => button.click());
+      const player = video.type === "file" ? document.createElement("video") : document.createElement("iframe");
+      player.className = "video-player";
+      if (video.type === "file") {
+        player.controls = true;
+        player.playsInline = true;
+        player.preload = "metadata";
+        player.src = video.sourceUrl;
+        if (video.thumbnailUrl) player.poster = video.thumbnailUrl;
+      } else {
+        player.src = video.embedUrl;
+        player.title = video.title;
+        player.allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share";
+        player.allowFullscreen = true;
+        player.referrerPolicy = "strict-origin-when-cross-origin";
+      }
+      const close = document.createElement("button");
+      close.className = "video-close";
+      close.type = "button";
+      close.textContent = "×";
+      close.setAttribute("aria-label", `Close ${video.title} video`);
+      close.addEventListener("click", () => {
+        // Removing the iframe/video also stops playback.
+        frame.replaceChildren(poster);
+        poster.focus({ preventScroll: true });
+      });
+      frame.replaceChildren(player, close);
+      if (video.type === "file") player.play().catch(() => {});
+    });
+  }
+
+  // The fallback stays behind the image if a thumbnail fails to load.
+  const fallback = document.createElement("span");
+  fallback.className = "video-thumb-fallback";
+  fallback.textContent = "♪";
+  fallback.setAttribute("aria-hidden", "true");
+  poster.append(fallback);
+  if (video.thumbnailUrl) {
+    const img = document.createElement("img");
+    img.src = video.thumbnailUrl;
+    img.alt = "";
+    img.className = "video-thumb";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.addEventListener("error", () => img.remove(), { once: true });
+    poster.append(img);
+  }
+  const icon = document.createElement("span");
+  icon.className = "video-play-icon";
+  icon.textContent = video.type === "link" ? "↗" : "▶";
+  icon.setAttribute("aria-hidden", "true");
+  const caption = document.createElement("span");
+  caption.className = "video-play-caption";
+  caption.textContent = video.type === "link" ? `Watch on ${video.platform}` : "Press to play";
+  caption.setAttribute("aria-hidden", "true");
+  poster.append(icon, caption);
+  frame.append(poster);
+
+  const body = document.createElement("div");
+  body.className = "video-card-body";
+  body.append(textElement("h4", video.title));
+  if (video.description) body.append(textElement("p", video.description));
+  const link = document.createElement("a");
+  link.className = "video-card-link";
+  link.href = video.sourceUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = video.platform === "original site" ? "Open original video ↗" : `Watch on ${video.platform} ↗`;
+  body.append(link);
+  article.append(frame, body);
+  return article;
 }
