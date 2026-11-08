@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initExternalLinks();
   initLightbox();
   initMotion();
+  initQuoteCarousel();
   refreshContent();
   setInterval(() => { if (!document.hidden) refreshContent(); }, REFRESH_INTERVAL_MS);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshContent(); });
@@ -95,6 +96,60 @@ function showFeedStatus(container, message) {
   note.dataset.feedStatus = container.id;
   note.setAttribute("role", "status");
   container.after(note);
+}
+
+// Native horizontal scrolling keeps touch swipes available without JavaScript.
+function initQuoteCarousel() {
+  const track = document.querySelector("#testimonials");
+  const controls = document.querySelector("[data-quote-controls]");
+  if (!track || !controls) return;
+  const previous = controls.querySelector("[data-quote-prev]");
+  const next = controls.querySelector("[data-quote-next]");
+  const count = controls.querySelector("[data-quote-count]");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  const measurements = () => {
+    const cards = [...track.children];
+    const width = cards[0]?.getBoundingClientRect().width || track.clientWidth;
+    const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
+    const step = width + gap;
+    const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
+    const index = Math.max(0, Math.min(cards.length - visible, Math.round(track.scrollLeft / step)));
+    return { cards, step, visible, index };
+  };
+  const update = () => {
+    if (!track.clientWidth) return;
+    const { cards, visible, index } = measurements();
+    controls.hidden = cards.length <= visible;
+    previous.disabled = track.scrollLeft <= 1;
+    next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 1;
+    const end = Math.min(index + visible, cards.length);
+    const label = cards.length ? `${index + 1}${end > index + 1 ? `–${end}` : ""} of ${cards.length}` : "";
+    if (count.textContent !== label) count.textContent = label;
+    cards.forEach((card, i) => {
+      card.setAttribute("role", "group");
+      card.setAttribute("aria-roledescription", "slide");
+      card.setAttribute("aria-label", `Review ${i + 1} of ${cards.length}`);
+    });
+  };
+  const go = direction => {
+    const { step, index, cards, visible } = measurements();
+    const target = direction === "first" ? 0 : direction === "last" ? cards.length - visible : index + direction;
+    track.scrollTo({ left: Math.max(0, target) * step, behavior: reducedMotion.matches ? "instant" : "smooth" });
+  };
+  previous.addEventListener("click", () => go(-1));
+  next.addEventListener("click", () => go(1));
+  track.addEventListener("keydown", event => {
+    if (event.target !== track) return;
+    const directions = { ArrowLeft: -1, ArrowRight: 1, Home: "first", End: "last" };
+    if (!(event.key in directions)) return;
+    event.preventDefault();
+    go(directions[event.key]);
+  });
+  track.addEventListener("scroll", update, { passive: true });
+  new ResizeObserver(update).observe(track);
+  new MutationObserver(update).observe(track, { childList: true });
+  update();
 }
 
 function initMenu() {
@@ -506,7 +561,7 @@ function createVideoCard(video) {
 
   const body = document.createElement("div");
   body.className = "video-card-body";
-  body.append(textElement("h4", video.title));
+  body.append(textElement("h3", video.title));
   if (video.description) body.append(textElement("p", video.description));
   const link = document.createElement("a");
   link.className = "video-card-link";
@@ -518,3 +573,4 @@ function createVideoCard(video) {
   article.append(frame, body);
   return article;
 }
+
