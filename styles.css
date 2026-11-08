@@ -99,16 +99,16 @@ h2 { font-size: clamp(2.8rem, 7vw, 5.8rem); line-height: .94; letter-spacing: -.
 .song-list .song-more::before { content: ""; }
 
 .quotes { background: var(--peach); }
-.quote-grid { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 1.5rem) / 2); gap: 1.5rem; margin-top: 1.5rem; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #77518466 transparent; padding-bottom: .75rem; }
+.quote-grid { --carousel-items: 2; display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 1.5rem) / 2); gap: 1.5rem; margin-top: 1.5rem; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: #77518466 transparent; padding-bottom: .75rem; }
 .quote-grid figure { min-width: 0; scroll-snap-align: start; overflow-wrap: anywhere; }
-.quote-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.5rem; margin-top: 1rem; }
-.quote-controls[hidden] { display: none; }
-.quote-hint, .quote-count { font-size: .8rem; }
-.quote-navigation { display: flex; align-items: center; gap: .8rem; }
-.quote-count { min-width: 5rem; text-align: center; font-variant-numeric: tabular-nums; }
-.quote-arrow { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #293b3240; border-radius: 50%; background: #f8f3ff; font-size: 1.35rem; cursor: pointer; }
-.quote-arrow:disabled { opacity: .35; cursor: default; }
-.quote-arrow:not(:disabled):hover { background: var(--cream); }
+.carousel-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem 1.5rem; margin-top: 1rem; }
+.carousel-controls[hidden] { display: none; }
+.carousel-hint, .carousel-count { font-size: .8rem; }
+.carousel-navigation { display: flex; align-items: center; gap: .8rem; }
+.carousel-count { min-width: 5rem; text-align: center; font-variant-numeric: tabular-nums; }
+.carousel-arrow { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid #293b3240; border-radius: 50%; background: #f8f3ff; font-size: 1.35rem; cursor: pointer; }
+.carousel-arrow:disabled { opacity: .35; cursor: default; }
+.carousel-arrow:not(:disabled):hover { background: var(--cream); }
 .quote-grid figure { background: var(--peach); padding: clamp(1.5rem, 5vw, 3.5rem); }
 .quote-grid blockquote { font-size: clamp(2rem, 4vw, 3.6rem); line-height: 1.02; }
 .quote-grid figcaption { display: flex; justify-content: space-between; gap: 1rem; margin-top: 2rem; font-size: .85rem; }
@@ -165,7 +165,7 @@ h2 { font-size: clamp(2.8rem, 7vw, 5.8rem); line-height: .94; letter-spacing: -.
   .section-head > p { max-width: 32rem; }
   .gig-card { grid-template-columns: 4.7rem 1fr; }
   .gig-action { grid-column: 2; justify-self: start; }
-  .quote-grid { grid-auto-columns: 100%; }
+  .quote-grid { --carousel-items: 1; grid-auto-columns: 100%; }
   .photo-grid { grid-template-columns: 1fr 1fr; grid-template-rows: 15rem 15rem 15rem; }
   .photo-a { grid-column: 1 / -1; grid-row: auto; }
   .photo-d { grid-column: 1 / -1; }
@@ -429,3 +429,34 @@ a[aria-disabled="true"] { cursor:default; }
   .video-thumb, .video-play-icon { transition: none; }
 }
 
+
+/* Swipeable media: each slide occupies one full mobile slot or half a desktop row. */
+.media-carousel {
+  --carousel-items: 2;
+  display: grid;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 1.5rem) / 2);
+  grid-auto-rows: auto;
+  gap: 1.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: #77518466 transparent;
+  padding-block: .5rem .75rem;
+}
+.media-carousel > * { min-width: 0; scroll-snap-align: start; }
+.media-slide .video-card { margin-inline: auto; }
+.photo-grid.media-carousel .photo {
+  grid-column: auto;
+  grid-row: auto;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  transform: none;
+}
+.media-carousel .photo:focus-visible { outline-offset: -4px; }
+@media (max-width: 800px) {
+  .media-carousel { --carousel-items: 1; grid-auto-columns: 100%; }
+}
