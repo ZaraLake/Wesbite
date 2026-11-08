@@ -15,7 +15,9 @@ document.addEventListener("DOMContentLoaded", () => {
   initExternalLinks();
   initLightbox();
   initMotion();
-  initQuoteCarousel();
+  initCarousel("#testimonials", "Review");
+  initCarousel("#video-grid", "Video");
+  initCarousel("#gallery-images", "Photo");
   refreshContent();
   setInterval(() => { if (!document.hidden) refreshContent(); }, REFRESH_INTERVAL_MS);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshContent(); });
@@ -99,21 +101,21 @@ function showFeedStatus(container, message) {
 }
 
 // Native horizontal scrolling keeps touch swipes available without JavaScript.
-function initQuoteCarousel() {
-  const track = document.querySelector("#testimonials");
-  const controls = document.querySelector("[data-quote-controls]");
+function initCarousel(selector, itemLabel) {
+  const track = document.querySelector(selector);
+  const controls = track?.parentElement.querySelector("[data-carousel-controls]");
   if (!track || !controls) return;
-  const previous = controls.querySelector("[data-quote-prev]");
-  const next = controls.querySelector("[data-quote-next]");
-  const count = controls.querySelector("[data-quote-count]");
+  const previous = controls.querySelector("[data-carousel-prev]");
+  const next = controls.querySelector("[data-carousel-next]");
+  const count = controls.querySelector("[data-carousel-count]");
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
   const measurements = () => {
     const cards = [...track.children];
-    const width = cards[0]?.getBoundingClientRect().width || track.clientWidth;
-    const gap = parseFloat(getComputedStyle(track).columnGap) || 0;
-    const step = width + gap;
-    const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
+    const style = getComputedStyle(track);
+    const gap = parseFloat(style.columnGap) || 0;
+    const visible = parseInt(style.getPropertyValue("--carousel-items"), 10) || 1;
+    const step = (track.getBoundingClientRect().width + gap) / visible;
     const index = Math.max(0, Math.min(cards.length - visible, Math.round(track.scrollLeft / step)));
     return { cards, step, visible, index };
   };
@@ -127,9 +129,11 @@ function initQuoteCarousel() {
     const label = cards.length ? `${index + 1}${end > index + 1 ? `–${end}` : ""} of ${cards.length}` : "";
     if (count.textContent !== label) count.textContent = label;
     cards.forEach((card, i) => {
+      // Keep photo buttons' native semantics and image descriptions.
+      if (card.matches("button")) return;
       card.setAttribute("role", "group");
       card.setAttribute("aria-roledescription", "slide");
-      card.setAttribute("aria-label", `Review ${i + 1} of ${cards.length}`);
+      card.setAttribute("aria-label", `${itemLabel} ${i + 1} of ${cards.length}`);
     });
   };
   const go = direction => {
@@ -571,6 +575,9 @@ function createVideoCard(video) {
   link.textContent = video.platform === "original site" ? "Open original video ↗" : `Watch on ${video.platform} ↗`;
   body.append(link);
   article.append(frame, body);
-  return article;
+  const slide = document.createElement("div");
+  slide.className = "media-slide";
+  slide.append(article);
+  return slide;
 }
 
